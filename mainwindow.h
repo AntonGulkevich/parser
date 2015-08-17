@@ -12,6 +12,9 @@
 #include <QFileDialog>
 #include <QStandardPaths>
 #include <QDebug>
+#include <QAbstractAnimation>
+#include <QString>
+
 
 class MainWindow : public QFrame
 {
@@ -27,6 +30,9 @@ private:
     QPushButton *log;
 
     QFileDialog *openDirDlg;
+    QFileDialog *openFileDlg;
+
+    QString pathToFolder;
 
     void initDefaultStyle();
     void initContent();

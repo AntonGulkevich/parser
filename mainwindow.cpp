@@ -1,10 +1,13 @@
 #include "mainwindow.h"
 
-#define BUTTONSIZE 190
+#define BUTTONSIZE 170
 #define PADDING 10
 #define SMALLBUTTONSIZE 30
-#define MAXH 210
-#define MAXW 480
+#define MAXH 190
+#define MAXW 440
+
+
+
 MainWindow::MainWindow(QWidget *parent)
     : QFrame(parent)
 {
@@ -42,6 +45,7 @@ void MainWindow::initDefaultStyle(){
                 "color: white}"
                 "QPushButton:hover{"
                 "background-color: #023D5E}";
+
     setStyleSheet(buttonQss+frameQss);
 }
 
@@ -51,33 +55,49 @@ void MainWindow::initContent(){
     openFileButton->setVisible(true);
     openFileButton->setGeometry(PADDING, PADDING, BUTTONSIZE, BUTTONSIZE);
     openFileButton->setText("Open File");
+    openFileButton->setToolTip("Open single file to parse");
 
     openDirButton = new QPushButton(this);
     openDirButton->setVisible(true);
     openDirButton->setGeometry(MAXH, PADDING, BUTTONSIZE, BUTTONSIZE);
     openDirButton->setText("Open Directory");
+    openDirButton->setToolTip("Open all files in current folder");
 
     closeButton = new QPushButton(this);
     closeButton->setVisible(true);
     closeButton->setGeometry(MAXW-SMALLBUTTONSIZE*2-PADDING, PADDING, SMALLBUTTONSIZE*2, SMALLBUTTONSIZE);
     closeButton->setText("close");
+    closeButton->setToolTip("Close programm");
+    closeButton->setStyleSheet("QPushButton{"
+                               "border-style: none;"
+                               "border-width: 0px;"
+                               "background-color: #800000;"
+                               "color: white}"
+                               "QPushButton:hover{"
+                               "background-color: #990000}");
 
     optionsButton = new QPushButton(this);
     optionsButton->setVisible(true);
-    optionsButton->setGeometry(MAXW-SMALLBUTTONSIZE*2-PADDING, PADDING*2 +SMALLBUTTONSIZE, SMALLBUTTONSIZE*2, SMALLBUTTONSIZE);
+    optionsButton->setGeometry(MAXW-SMALLBUTTONSIZE*2-PADDING, PADDING*2 +SMALLBUTTONSIZE, SMALLBUTTONSIZE*2, SMALLBUTTONSIZE*2);
     optionsButton->setText("options");
+    optionsButton->setToolTip("Setup");
 
     optionsButton = new QPushButton(this);
     optionsButton->setVisible(true);
-    optionsButton->setGeometry(MAXW-SMALLBUTTONSIZE*2-PADDING, PADDING*3 +SMALLBUTTONSIZE*2, SMALLBUTTONSIZE*2, SMALLBUTTONSIZE*3+PADDING*2);
+    optionsButton->setGeometry(MAXW-SMALLBUTTONSIZE*2-PADDING, PADDING*3 +SMALLBUTTONSIZE*3, SMALLBUTTONSIZE*2, SMALLBUTTONSIZE*2);
     optionsButton->setText("log");
+    optionsButton->setToolTip("Show log");
 
-    openDirDlg= new QFileDialog(this,tr("Open file"),
-                                QStandardPaths::locate(QStandardPaths::DesktopLocation, QString(), QStandardPaths::LocateDirectory),
-                                tr("bin files (*.bin)"));
+    pathToFolder = "//fs/Group Projects/UBS/База конфигураций";//QStandardPaths::locate(QStandardPaths::DesktopLocation, QString(), QStandardPaths::LocateDirectory)
+
+    openDirDlg = new QFileDialog(this,tr("Open file"), pathToFolder);
+    openFileDlg = new QFileDialog(this,tr("Open file"), pathToFolder, tr("bin files (*.bin)"));
+
+    openDirDlg->setFileMode(QFileDialog::DirectoryOnly);
 
     connect(closeButton, SIGNAL(clicked(bool)), this, SLOT(onCloseButtonClicked()));
     connect(openDirButton, SIGNAL(clicked(bool)), openDirDlg, SLOT(open()));
+    connect (openFileButton, SIGNAL(clicked(bool)), openFileDlg, SLOT(open()));
 
 }
 
