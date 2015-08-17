@@ -1,3 +1,7 @@
+*.pro.user
+# build
+*.qm
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
