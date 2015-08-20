@@ -13,26 +13,16 @@ MainWindow::MainWindow(QWidget *parent):QFrame(parent)
     initDefaultStyle();
     initDefVars();
     initContent();
-    /*0xFA0BD8A5 crc-32 flag*/
-
-
 
     autoStart(pathToFolder+"commod.bin");
 
+
 }
 
-void MainWindow::autoStart(const QString &fileName)
+bool MainWindow::autoStart(const QString &fileName)
 {
-    if(onOpenFileDialogFinished(fileName))
-    {
-        QString zipFileName =fileName+".zip";
-        //zip(fileName, zipFileName);
-        srcToZip(fileName, zipFileName);
-        appendToLog("Auto start finished");
-        exit(1);
-    }
-    else
-        appendToLog("Auto start stopped with error");
+   onOpenFileDialogFinished(fileName);
+   return true;
 }
 
 bool MainWindow::openFile(const QString &fileName)
@@ -42,11 +32,11 @@ bool MainWindow::openFile(const QString &fileName)
     if (!currentFile->open(QIODevice::ReadOnly))
     {        
         currentFile->close();
-        appendToLog("Unable to open file.");
+        logEdit->append("Unable to open file.");
         currentFile = NULL;
         return false;
     }
-    appendToLog("File "+ fileName+ " opened");
+    appendToLog("File "+ fileName+ " opened.");
     return true;
 }
 
@@ -141,20 +131,14 @@ void MainWindow::initContent(){
 
 void MainWindow::initDefVars()
 {
-    currentFile = NULL;
-    zipCompressionLevel = 9;
+    currentFile= NULL;
 }
 
 bool MainWindow::saveToFile(const QString &fileName, const QString &src)
 {
-    /*create header*/
-    QByteArray header;
-    header.resize(HEADER_SIZE);
-    header.fill(0xFF);
-
-    /*end of header*/
     QTextCodec *codec = QTextCodec::codecForName("Windows-1251");
-    QByteArray encodedString = header + codec->fromUnicode(src);
+    QByteArray encodedString = codec->fromUnicode(src);
+
     QFile file(fileName);
     if (!file.open(QIODevice::WriteOnly))
     {
@@ -165,20 +149,20 @@ bool MainWindow::saveToFile(const QString &fileName, const QString &src)
     QDataStream out(&file);
     out.writeRawData(encodedString.data(), encodedString.size());
     file.close();
-    appendToLog("File " + fileName + " saved");
+    appendToLog("File" + fileName + " saved");
     return true;
+
 }
 
 void MainWindow::parseCurrentFile()
 {
     appendToLog("Parsing started.");
-    /*parsing header*/
+    /*parsing header to vector*/
     QDataStream in(currentFile);
 
     QByteArray header;
     header.resize(HEADER_SIZE);
     in.readRawData(header.data(), HEADER_SIZE);
-    /*
     QVector <Fat> headerVector;
     for (int i = 0; (header[i] != 0xFF && i < 64); i+=4)
     {
@@ -189,8 +173,7 @@ void MainWindow::parseCurrentFile()
                  + (static_cast<qint32>(header.at(i+3))<<8);
         headerVector.push_back(f);
     }
-    */
-    /*end of parsing header*/
+    /*end of parding header*/
 
     /*parsing data*/
     QByteArray dataToParse;
@@ -203,24 +186,15 @@ void MainWindow::parseCurrentFile()
     QString textData = codec->toUnicode(dataToParse);
     QStringList dataByParts = textData.split("GENERAL");
     dataByParts.removeFirst();//the firts part is always zero
-    QVector <Fat> headerVector;
-    headerVector.clear();
-    int address=HEADER_SIZE;
+
     for (int i=0; i<dataByParts.count();++i)
     {
         /*kav names*/
-        QString temp;
-        temp+="GENERAL"+dataByParts[i];
+        QString temp(dataByParts[i]);
+        temp.simplified();
         temp=temp.left(temp.lastIndexOf("\r\nEND\r\n")+7);
-        temp.replace(QRegExp("[ ]{0,}(=)[ ]{0,}"), QString("="));
-        temp.replace(QRegExp("[ ]{0,}(==)[ ]{0,}"), QString("=="));
-        temp.replace(QRegExp("[ ]{0,}(>)[ ]{0,}"), QString(">"));
-        temp.replace(QRegExp("[ ]{0,}(<)[ ]{0,}"), QString("<"));
-        temp.replace(QRegExp("[ ]{0,}(\\&\\&)[ ]{0,}"), QString("&&"));
-        temp.replace(QRegExp("[ ]{0,}(\\|\\|)[ ]{0,}"), QString("||"));
-        temp.replace(QRegExp("[ ]{0,}(\\})[ ]{0,}"), QString("}"));
-        temp.replace(QRegExp("[ ]{0,}(\\{)[ ]{0,}"), QString("{"));
-        temp.remove('\t');
+        //temp+="\r\nEND\r\n";
+        temp.replace(QString(" = "), QString("="));
         int charsToDel=0;
         int start =0;
         int tempCount=temp.size()-1;
@@ -252,57 +226,22 @@ void MainWindow::parseCurrentFile()
                 j-=charsToDel;
                 tempCount=tempCount-charsToDel;
             }
-        }
-        temp.replace(QRegExp("(\r\n){2,}"),QString("\r\n"));
-        temp.replace(QString("}\r\n"), QString("}"));
-        temp.replace(QString("{\r\n"), QString("{"));
-        temp.replace(QRegExp("[ ]{0,}(;\r\n)[ ]{0,}"), QString(";"));
-
-        /*text part must be multiply of 256: fill 0xFF*/
-        tempCount = temp.count();
-        int bytesToFill;
-        bytesToFill = HEADER_SIZE-tempCount%HEADER_SIZE;
-        QByteArray fillStr;
-        fillStr.resize(bytesToFill);
-        fillStr.fill(0xFF);
-        QTextCodec *codec = QTextCodec::codecForName("Windows-1251");
-        QString convertedFillStr;
-        convertedFillStr = codec->toUnicode(fillStr);
-        temp.append(convertedFillStr);
-        /*end of fill*/
-
-        /*header*/
-        Fat tempFat;
-        tempFat.address=address;
-        tempFat.size=tempCount;
-        address+=temp.size();
-        headerVector.push_back(tempFat);
-
-        QByteArray headerNew;
-        headerNew.resize(HEADER_SIZE);
-        headerNew.fill(0xFF);
-
-        for (QVector <Fat>::iterator it = headerVector.begin(); it!=headerVector.end(); ++it){
 
         }
-
-
-
-        /*end of header*/
+        temp.simplified();
         dataByParts[i]= temp;
     }
-    QString strAfterPars=dataByParts.join("");
 
-    appendToLog("Parsing finished.");
-
-    saveToFile(currentFile->fileName()+"t", strAfterPars);
+    QString teststr=dataByParts.join("\r\nGENERAL\r\n");
+    saveToFile(currentFile->fileName()+"t", teststr);
 
     /*end of data parsing*/
 
-
+    /*text part must be multiply of 256*/
 
     currentFile->close();
     currentFile= NULL;
+
 }
 
 void MainWindow::appendToLog(const QString &text)
@@ -326,24 +265,20 @@ void MainWindow::onCloseButtonClicked()
 
 bool MainWindow::onOpenFileButtonClicked()
 {
+
     return true;
 }
 
 bool MainWindow::onOpenDirButtonClicked()
 {
+
     return true;
 }
 
-bool MainWindow::onOpenFileDialogFinished(QString fileName)
+void MainWindow::onOpenFileDialogFinished(QString fileName)
 {
-    bool openCorrectly = openFile(fileName);
-    if (openCorrectly)
-    {
-        parseCurrentFile();
-        return openCorrectly;
-    }
-    else
-        return openCorrectly;
+    openFile(fileName);
+    parseCurrentFile();
 }
 
 void MainWindow::onOpenLogClicked()
@@ -379,37 +314,4 @@ void MainWindow::mouseReleaseEvent(QMouseEvent *event)
     {
         canMove = false;
     }
-}
-void MainWindow::zip (QString filename , QString zipfilename){
-
-    QFile infile(filename);
-    QFile outfile(zipfilename);
-    infile.open(QIODevice::ReadOnly);
-    outfile.open(QIODevice::WriteOnly);
-    QByteArray uncompressedData = infile.readAll();
-    QByteArray compressedData = qCompress(uncompressedData,zipCompressionLevel);
-    outfile.write(compressedData);
-    infile.close();
-    outfile.close();
-}
-
-void MainWindow::unZip (QString zipfilename , QString filename){
-    QFile infile(zipfilename);
-    QFile outfile(filename);
-    infile.open(QIODevice::ReadOnly);
-    outfile.open(QIODevice::WriteOnly);
-    QByteArray uncompressedData = infile.readAll();
-    QByteArray compressedData = qUncompress(uncompressedData);
-    outfile.write(compressedData);
-    infile.close();
-    outfile.close();
-}
-void MainWindow::srcToZip (const QString & filename , const QString & zipfilename)
-{
-    QProcess toZip;
-    QStringList list;
-    list << "a" << "-tzip" << "-mx7" << zipfilename << filename; //a -tzip -ssw -mx7
-    toZip.start("D:\\Program Files (x86)\\7-Zip\\7z.exe", list );
-    toZip.waitForFinished(30000);
-    return;
 }

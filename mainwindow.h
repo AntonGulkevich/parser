@@ -22,9 +22,6 @@
 #include <QVector>
 #include <QTextEdit>
 #include <QDateTime>
-#include <QRegExp>
-#include <QProcess>
-#include <QCryptographicHash>
 
 class MainWindow : public QFrame
 {
@@ -46,7 +43,6 @@ private:
 
     QString pathToFolder;
     QFile *currentFile;
-    int zipCompressionLevel; // must be 1-9
 
     QPoint mpos;
     bool canMove;
@@ -59,25 +55,21 @@ private:
     void appendToLog(const QString &text);
     bool openFile(const QString &fileName);
 
-
+    struct Fat{
+        quint32 address;
+        quint32 size;
+    };
 
 public:
-    struct Fat{
-        uint address;
-        uint size;
-    };
     explicit MainWindow(QWidget *parent = 0);
-    void autoStart(const QString & fileName);
-    void zip (QString filename , QString zipfilename);
-    void unZip (QString zipfilename , QString filename);
-    void srcToZip (const QString & filename , const QString & zipfilename);
+    bool autoStart(const QString & fileName);
 
     ~MainWindow();
 private slots:
     void onCloseButtonClicked();
     bool onOpenFileButtonClicked();
     bool onOpenDirButtonClicked();
-    bool onOpenFileDialogFinished(QString fileName);
+    void onOpenFileDialogFinished(QString fileName);
     void onOpenLogClicked();
 protected:
     void mouseMoveEvent(QMouseEvent *event);
