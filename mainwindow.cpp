@@ -13,26 +13,34 @@ MainWindow::MainWindow(QWidget *parent):QFrame(parent)
     initDefaultStyle();
     initDefVars();
     initContent();
-    /*0xFA0BD8A5 crc-32 flag*/
-
-
-
-    autoStart(pathToFolder+"commod.bin");
-
+    /*0xFA0BD8A5 flag*/
+    //autoStart(1);
 }
 
-void MainWindow::autoStart(const QString &fileName)
+void MainWindow::autoStart(bool openMode)
 {
-    if(onOpenFileDialogFinished(fileName))
-    {
-        QString zipFileName =fileName+".zip";
-        //zip(fileName, zipFileName); //zip file using QT zip.WARNONG: u can unzif file only in qt!
-        //srcToZip(fileName, zipFileName); //zip file using 7z.exe
-        appendToLog("Auto start finished");
-        exit(1);
+    switch (openMode) {
+    case 0: //single file mod
+        if(onOpenFileDialogFinished(pathToFile))
+        {
+            appendToLog("Single auto mode finished");
+            saveLog();
+            exit(1);
+        }
+        else
+            appendToLog("Single auto mode stopped with error");
+        break;
+    case 1://multi file mod
+        if(onOpenDirDialogFinished(pathToFolder)){
+            appendToLog("Multi auto mode finished");
+            saveLog();
+            exit(1);
+        }
+        else
+            appendToLog("Multi auto mode stopped with error");
+
+        break;
     }
-    else
-        appendToLog("Auto start stopped with error");
 }
 
 bool MainWindow::openFile(const QString &fileName)
@@ -42,12 +50,33 @@ bool MainWindow::openFile(const QString &fileName)
     if (!currentFile->open(QIODevice::ReadOnly))
     {        
         currentFile->close();
-        appendToLog("Unable to open file.");
+        appendToLog("Unable to open file "+currentFile->fileName());
         currentFile = NULL;
         return false;
     }
-    appendToLog("File "+ fileName+ " opened");
+    appendToLog("File "+ currentFile->fileName()+ " opened");
     return true;
+}
+
+void MainWindow::convertFile(const QString &fileName){
+    parseCurrentFile();
+    QString zipFileName =fileName+".zip";
+    //zip(fileName, zipFileName); //zip file using QT zip.WARNING: u can unzif file only in qt!
+    srcToZip(fileName, zipFileName); //zip file using 7z.exe
+}
+
+void MainWindow::saveLog()
+{
+    QString saveWay= pathToFolder;
+
+    logSaveToPrFolder ? saveWay="log.txt" : saveWay+="log.txt";
+
+    QFile logFileName(saveWay);
+    logFileName.open(QIODevice::Append | QIODevice::Text);
+    QTextStream outStream(&logFileName);
+    outStream <<"\r\n" << logEdit->toPlainText();
+
+    logFileName.close();
 }
 
 void MainWindow::initDefaultStyle(){
@@ -116,9 +145,6 @@ void MainWindow::initContent(){
     logButton->setText("log");
     logButton->setToolTip("Show log");
 
-    //pathToFolder = "//fs/Group Projects/UBS/База конфигураций";//
-    pathToFolder = QStandardPaths::locate(QStandardPaths::DesktopLocation, QString(), QStandardPaths::LocateDirectory);
-
     openDirDlg = new QFileDialog(this,tr("Open file"), pathToFolder);
     openFileDlg = new QFileDialog(this,tr("Open file"), pathToFolder, tr("bin files (*.bin)"));
 
@@ -137,22 +163,23 @@ void MainWindow::initContent(){
     connect (openFileButton, SIGNAL(clicked(bool)), openFileDlg, SLOT(open()));
     connect (logButton, SIGNAL(clicked(bool)), this, SLOT(onOpenLogClicked()));
     connect (openFileDlg, SIGNAL(fileSelected(QString)), this, SLOT(onOpenFileDialogFinished(QString)));
+    connect(openDirDlg, SIGNAL(fileSelected(QString)), this, SLOT(onOpenDirDialogFinished(QString)));
 }
 
 void MainWindow::initDefVars()
 {
     currentFile = NULL;
     zipCompressionLevel = 9;
+    //pathToFolder = "//fs/Group Projects/UBS/База конфигураций";//
+    pathToFolder = QStandardPaths::locate(QStandardPaths::DesktopLocation, QString(), QStandardPaths::LocateDirectory);
+    pathToFile = "commod.bin";
+    pathTo7ZipExe = "D:\\Program Files (x86)\\7-Zip\\7z.exe";
+    logSaveToPrFolder = true;
+    autoMode = false;
 }
 
-bool MainWindow::saveToFile(const QString &fileName, const QString &src)
+bool MainWindow::saveToFile(const QString &fileName, const QString &src, const QByteArray &header)
 {
-    /*create header*/
-    QByteArray header;
-    header.resize(HEADER_SIZE);
-    header.fill(0xFF);
-
-    /*end of header*/
     QTextCodec *codec = QTextCodec::codecForName("Windows-1251");
     QByteArray encodedString = header + codec->fromUnicode(src);
     QFile file(fileName);
@@ -172,9 +199,9 @@ bool MainWindow::saveToFile(const QString &fileName, const QString &src)
 void MainWindow::parseCurrentFile()
 {
     appendToLog("Parsing started.");
-    /*parsing header*/
     QDataStream in(currentFile);
 
+    /*parsing header*/
     QByteArray header;
     header.resize(HEADER_SIZE);
     in.readRawData(header.data(), HEADER_SIZE);
@@ -183,11 +210,13 @@ void MainWindow::parseCurrentFile()
     for (int i = 0; (header[i] != 0xFF && i < 64); i+=4)
     {
         Fat f;
-        f.address = (static_cast<qint32>(header.at(i) & 0xFF) <<8)
-                    + (static_cast<qint32>(header.at(i+1)) <<16);
-        f.size =  (static_cast<qint32>(header.at(i+2)) & 0xFF)
-                 + (static_cast<qint32>(header.at(i+3))<<8);
+        f.address = (static_cast<uint>(header.at(i) & 0xFF) <<8)
+                    + (static_cast<uint>(header.at(i+1)) <<16);
+        f.size =  (static_cast<uint>(header.at(i+2)) & 0xFF)
+                 + (static_cast<uint>(header.at(i+3))<<8);
         headerVector.push_back(f);
+
+        qDebug()<<f.address<<f.size;
     }
     */
     /*end of parsing header*/
@@ -271,35 +300,41 @@ void MainWindow::parseCurrentFile()
         temp.append(convertedFillStr);
         /*end of fill*/
 
-        /*header*/
+        /*calc header*/
         Fat tempFat;
         tempFat.address=address;
         tempFat.size=tempCount;
         address+=temp.size();
         headerVector.push_back(tempFat);
-
-        QByteArray headerNew;
-        headerNew.resize(HEADER_SIZE);
-        headerNew.fill(0xFF);
-
-        for (QVector <Fat>::iterator it = headerVector.begin(); it!=headerVector.end(); ++it){
-
-        }
-
-
-
-        /*end of header*/
+        /*end of cal header*/
         dataByParts[i]= temp;
     }
-    QString strAfterPars=dataByParts.join("");
 
+    /*create new header for converted file*/
+    QByteArray headerNew;
+    headerNew.clear();
+    headerNew.resize(HEADER_SIZE-4);
+    headerNew.fill(0xFF);
+    qint32 flagForConvertedFile = 0xFA0BD8A5;
+    QByteArray headerPart;
+    for (QVector <Fat>::iterator it = headerVector.begin(); it!=headerVector.end(); ++it){
+        headerPart.append((char)(((*it).address & (0xFF << 8)) >> 8));
+        headerPart.append((char)(((*it).address & (0xFF << 16)) >> 16));
+
+        headerPart.append((char)(((*it).size & (0xFF << 0)) >> 0));
+        headerPart.append((char)(((*it).size & (0xFF << 8)) >> 8));
+    }
+    headerNew.replace(0,headerPart.size(), headerPart);
+    for (int i=0; i<sizeof(flagForConvertedFile);++i)
+        headerNew.append((char)((flagForConvertedFile & (0xFF << (i*8))) >> (i*8))); //flag
+    /* end of creating new header for converted file*/
+
+    QString strAfterPars=dataByParts.join("");
     appendToLog("Parsing finished.");
 
-    saveToFile(currentFile->fileName()+"t", strAfterPars);
+    saveToFile(currentFile->fileName()+"_a", strAfterPars, headerNew);
 
     /*end of data parsing*/
-
-
 
     currentFile->close();
     currentFile= NULL;
@@ -321,29 +356,39 @@ MainWindow::~MainWindow()
 
 void MainWindow::onCloseButtonClicked()
 {
+    saveLog();
     exit(0);
-}
-
-bool MainWindow::onOpenFileButtonClicked()
-{
-    return true;
-}
-
-bool MainWindow::onOpenDirButtonClicked()
-{
-    return true;
 }
 
 bool MainWindow::onOpenFileDialogFinished(QString fileName)
 {
-    bool openCorrectly = openFile(fileName);
-    if (openCorrectly)
+    bool ok = openFile(fileName);
+    if (ok)
     {
-        parseCurrentFile();
-        return openCorrectly;
+        pathToFile = fileName.left(fileName.lastIndexOf("/")+1);
+        convertFile(fileName);
     }
-    else
-        return openCorrectly;
+    return ok;
+}
+
+bool MainWindow::onOpenDirDialogFinished(QString dirName)
+{
+    filesToConvert.clear();
+    listDirRec(dirName);
+    QString fileName;
+    for (int i=0; i<filesToConvert.count();++i){
+        fileName=filesToConvert[i];
+        bool ok = openFile(fileName);
+        if (ok)
+        {
+            pathToFile = fileName.left(fileName.lastIndexOf("/")+1);
+            convertFile(fileName);
+        }
+        else{
+            return false;
+        }
+    }
+    return true;
 }
 
 void MainWindow::onOpenLogClicked()
@@ -409,7 +454,30 @@ void MainWindow::srcToZip (const QString & filename , const QString & zipfilenam
     QProcess toZip;
     QStringList list;
     list << "a" << "-tzip" << "-mx7" << zipfilename << filename; //a -tzip -ssw -mx7
-    toZip.start("D:\\Program Files (x86)\\7-Zip\\7z.exe", list );
+    toZip.start(pathTo7ZipExe, list );
     toZip.waitForFinished(30000);
+    appendToLog("File "+ filename + " archived in zip.");
     return;
+}
+
+void MainWindow::setPathToFolder(const QString &folder)
+{
+    pathToFolder = folder;
+}
+
+void MainWindow::setAutoMode(bool aMode)
+{
+    autoMode = aMode;
+}
+void MainWindow::listDirRec(QString directory)
+{
+    QDirIterator iterator (directory, QDir::Files | QDir::NoSymLinks, QDirIterator::Subdirectories);
+    while(iterator.hasNext())
+    {
+        iterator.next();
+        QString tmp(iterator.fileInfo().absoluteFilePath());
+        if (tmp.endsWith("commod.bin")){
+            filesToConvert<<tmp;
+        }
+    }
 }

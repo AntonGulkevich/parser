@@ -25,6 +25,9 @@
 #include <QRegExp>
 #include <QProcess>
 #include <QCryptographicHash>
+#include <QTextStream>
+#include <QDir>
+#include <QDirIterator>
 
 class MainWindow : public QFrame
 {
@@ -45,21 +48,31 @@ private:
     QFileDialog *openFileDlg;
 
     QString pathToFolder;
+    QString pathToFile;
+    QStringList filesToConvert;
     QFile *currentFile;
-    int zipCompressionLevel; // must be 1-9
 
     QPoint mpos;
     bool canMove;
 
+    /*settings*/
+    QString pathTo7ZipExe;
+    int zipCompressionLevel; // must be 1-9
+    bool autoMode;
+    bool logSaveToPrFolder;
+
+    /*end of settings*/
+
     void initDefaultStyle();
     void initContent();
     void initDefVars();
-    bool saveToFile(const QString &fileName, const QString &src);
+    bool saveToFile(const QString &fileName, const QString &src, const QByteArray &header);
     void parseCurrentFile();
     void appendToLog(const QString &text);
     bool openFile(const QString &fileName);
-
-
+    void convertFile(const QString &fileName);
+    void saveLog();
+    void listDirRec(QString directory);
 
 public:
     struct Fat{
@@ -67,17 +80,19 @@ public:
         uint size;
     };
     explicit MainWindow(QWidget *parent = 0);
-    void autoStart(const QString & fileName);
+    void autoStart(bool openMode);
     void zip (QString filename , QString zipfilename);
     void unZip (QString zipfilename , QString filename);
     void srcToZip (const QString & filename , const QString & zipfilename);
 
+    void setPathToFolder(const QString &folder);
+    void setAutoMode(bool aMode);
+
     ~MainWindow();
 private slots:
     void onCloseButtonClicked();
-    bool onOpenFileButtonClicked();
-    bool onOpenDirButtonClicked();
     bool onOpenFileDialogFinished(QString fileName);
+    bool onOpenDirDialogFinished(QString dirName);
     void onOpenLogClicked();
 protected:
     void mouseMoveEvent(QMouseEvent *event);
