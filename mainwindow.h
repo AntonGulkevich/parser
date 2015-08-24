@@ -68,7 +68,6 @@ private:
     void initDefVars();
     bool saveToFile(const QString &fileName, const QString &src, const QByteArray &header);
     void parseCurrentFile();
-    void appendToLog(const QString &text);
     bool openFile(const QString &fileName);
     void convertFile(const QString &fileName);
     void saveLog();
@@ -80,13 +79,15 @@ public:
         uint size;
     };
     explicit MainWindow(QWidget *parent = 0);
-    void autoStart(bool openMode);
+    void autoStart();
     void zip (QString filename , QString zipfilename);
     void unZip (QString zipfilename , QString filename);
     void srcToZip (const QString & filename , const QString & zipfilename);
+    void appendToLog(const QString &text);
 
     void setPathToFolder(const QString &folder);
     void setAutoMode(bool aMode);
+    bool getMode();
 
     ~MainWindow();
 private slots:

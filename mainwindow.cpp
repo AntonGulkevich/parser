@@ -14,13 +14,12 @@ MainWindow::MainWindow(QWidget *parent):QFrame(parent)
     initDefVars();
     initContent();
     /*0xFA0BD8A5 flag*/
-    //autoStart(1);
 }
 
-void MainWindow::autoStart(bool openMode)
+void MainWindow::autoStart()
 {
-    switch (openMode) {
-    case 0: //single file mod
+    if (!autoMode)
+    {
         if(onOpenFileDialogFinished(pathToFile))
         {
             appendToLog("Single auto mode finished");
@@ -29,8 +28,9 @@ void MainWindow::autoStart(bool openMode)
         }
         else
             appendToLog("Single auto mode stopped with error");
-        break;
-    case 1://multi file mod
+    }
+    else
+    {
         if(onOpenDirDialogFinished(pathToFolder)){
             appendToLog("Multi auto mode finished");
             saveLog();
@@ -38,8 +38,6 @@ void MainWindow::autoStart(bool openMode)
         }
         else
             appendToLog("Multi auto mode stopped with error");
-
-        break;
     }
 }
 
@@ -50,11 +48,11 @@ bool MainWindow::openFile(const QString &fileName)
     if (!currentFile->open(QIODevice::ReadOnly))
     {        
         currentFile->close();
-        appendToLog("Unable to open file "+currentFile->fileName());
+        appendToLog("Unable to open file "+pathToFile);
         currentFile = NULL;
         return false;
     }
-    appendToLog("File "+ currentFile->fileName()+ " opened");
+    appendToLog("File "+ pathToFile+ " opened");
     return true;
 }
 
@@ -171,8 +169,8 @@ void MainWindow::initDefVars()
     currentFile = NULL;
     zipCompressionLevel = 9;
     //pathToFolder = "//fs/Group Projects/UBS/База конфигураций";//
-    pathToFolder = QStandardPaths::locate(QStandardPaths::DesktopLocation, QString(), QStandardPaths::LocateDirectory);
-    pathToFile = "commod.bin";
+    //pathToFolder = QStandardPaths::locate(QStandardPaths::DesktopLocation, QString(), QStandardPaths::LocateDirectory);
+    //pathToFile = "commod.bin";
     pathTo7ZipExe = "D:\\Program Files (x86)\\7-Zip\\7z.exe";
     logSaveToPrFolder = true;
     autoMode = false;
@@ -325,7 +323,7 @@ void MainWindow::parseCurrentFile()
         headerPart.append((char)(((*it).size & (0xFF << 8)) >> 8));
     }
     headerNew.replace(0,headerPart.size(), headerPart);
-    for (int i=0; i<sizeof(flagForConvertedFile);++i)
+    for (uint i=0; i<sizeof(flagForConvertedFile);++i)
         headerNew.append((char)((flagForConvertedFile & (0xFF << (i*8))) >> (i*8))); //flag
     /* end of creating new header for converted file*/
 
@@ -364,10 +362,7 @@ bool MainWindow::onOpenFileDialogFinished(QString fileName)
 {
     bool ok = openFile(fileName);
     if (ok)
-    {
-        pathToFile = fileName.left(fileName.lastIndexOf("/")+1);
         convertFile(fileName);
-    }
     return ok;
 }
 
@@ -378,15 +373,10 @@ bool MainWindow::onOpenDirDialogFinished(QString dirName)
     QString fileName;
     for (int i=0; i<filesToConvert.count();++i){
         fileName=filesToConvert[i];
-        bool ok = openFile(fileName);
-        if (ok)
-        {
-            pathToFile = fileName.left(fileName.lastIndexOf("/")+1);
+        if (openFile(fileName))
             convertFile(fileName);
-        }
-        else{
+        else
             return false;
-        }
     }
     return true;
 }
@@ -463,11 +453,17 @@ void MainWindow::srcToZip (const QString & filename , const QString & zipfilenam
 void MainWindow::setPathToFolder(const QString &folder)
 {
     pathToFolder = folder;
+    pathToFile = folder + "commod.bin";
 }
 
 void MainWindow::setAutoMode(bool aMode)
 {
     autoMode = aMode;
+}
+
+bool MainWindow::getMode()
+{
+    return autoMode;
 }
 void MainWindow::listDirRec(QString directory)
 {
