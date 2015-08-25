@@ -28,6 +28,12 @@
 #include <QTextStream>
 #include <QDir>
 #include <QDirIterator>
+#include <QPropertyAnimation>
+#include <QGroupBox>
+#include <QLineEdit>
+#include <QCheckBox>
+#include <QLabel>
+#include <QSpinBox>
 
 class MainWindow : public QFrame
 {
@@ -37,20 +43,28 @@ private:
     QSize mainWindowSize;
     QDateTime dateTime;
 
-    QPushButton *openFileButton;
-    QPushButton *openDirButton;
-    QPushButton *closeButton;
-    QPushButton *optionsButton;
-    QPushButton *logButton;
+    QPushButton * openFileButton;
+    QPushButton * openDirButton;
+    QPushButton * closeButton;
+    QPushButton * optionsButton;
+    QPushButton * logButton;
     QTextEdit * logEdit;
+    QGroupBox * boxWidget;
+    QLineEdit * zipLE;
+    QSpinBox  * zipCompressionLE;
+    QCheckBox * createArchive;
+    QCheckBox * saveLogToSameFolder;
+    QLabel * dir7ZipL;
+    QLabel * zipCompressionLevelL;
 
-    QFileDialog *openDirDlg;
-    QFileDialog *openFileDlg;
+
+    QFileDialog * openDirDlg;
+    QFileDialog * openFileDlg;
 
     QString pathToFolder;
     QString pathToFile;
     QStringList filesToConvert;
-    QFile *currentFile;
+    QFile * currentFile;
 
     QPoint mpos;
     bool canMove;
@@ -59,7 +73,8 @@ private:
     QString pathTo7ZipExe;
     int zipCompressionLevel; // must be 1-9
     bool autoMode;
-    bool logSaveToPrFolder;
+    int logSaveToPrFolder;
+    int createArchiveFile;
 
     /*end of settings*/
 
@@ -80,10 +95,12 @@ public:
     };
     explicit MainWindow(QWidget *parent = 0);
     void autoStart();
-    void zip (QString filename , QString zipfilename);
-    void unZip (QString zipfilename , QString filename);
+    void zip (const QString &filename ,const QString &zipfilename);
+    void unZip (const QString &zipfilename , const QString &filename);
     void srcToZip (const QString & filename , const QString & zipfilename);
     void appendToLog(const QString &text);
+    void initSettings();
+    void saveSettings();
 
     void setPathToFolder(const QString &folder);
     void setAutoMode(bool aMode);
@@ -92,9 +109,14 @@ public:
     ~MainWindow();
 private slots:
     void onCloseButtonClicked();
-    bool onOpenFileDialogFinished(QString fileName);
-    bool onOpenDirDialogFinished(QString dirName);
+    bool onOpenFileDialogFinished(const QString &fileName);
+    bool onOpenDirDialogFinished(const QString &dirName);
     void onOpenLogClicked();
+    void onOpenSetupClicked();
+    void onZipPathTextChanged(const QString &path);
+    void onZipComprLevelChanged(int level);
+    void onCreateArchiveStateChanged(int state);
+    void onSaveLogSameDir(int state);
 protected:
     void mouseMoveEvent(QMouseEvent *event);
     void mousePressEvent(QMouseEvent *event);

@@ -14,6 +14,8 @@ MainWindow::MainWindow(QWidget *parent):QFrame(parent)
     initDefVars();
     initContent();
     /*0xFA0BD8A5 flag*/
+
+    appendToLog("Programm started");
 }
 
 void MainWindow::autoStart()
@@ -60,14 +62,15 @@ void MainWindow::convertFile(const QString &fileName){
     parseCurrentFile();
     QString zipFileName =fileName+".zip";
     //zip(fileName, zipFileName); //zip file using QT zip.WARNING: u can unzif file only in qt!
-    srcToZip(fileName, zipFileName); //zip file using 7z.exe
+    if (createArchiveFile)
+        srcToZip(fileName, zipFileName); //zip file using 7z.exe
 }
 
 void MainWindow::saveLog()
 {
     QString saveWay= pathToFolder;
 
-    logSaveToPrFolder ? saveWay="log.txt" : saveWay+="log.txt";
+    logSaveToPrFolder!=0 ? saveWay="log.txt" : saveWay+="log.txt";
 
     QFile logFileName(saveWay);
     logFileName.open(QIODevice::Append | QIODevice::Text);
@@ -105,12 +108,10 @@ void MainWindow::initDefaultStyle(){
                 "color: white}"
                 "QPushButton:hover{"
                 "background-color: #023D5E}";
-
     setStyleSheet(buttonQss+frameQss);
 }
 
 void MainWindow::initContent(){
-
     openFileButton = new QPushButton(this);
     openFileButton->setGeometry(PADDING, PADDING, BUTTONSIZE, BUTTONSIZE);
     openFileButton->setText("Convert File");
@@ -127,7 +128,6 @@ void MainWindow::initContent(){
     closeButton->setToolTip("Close programm");
     closeButton->setStyleSheet("QPushButton{"
                                "border-style: none;"
-                               "border-width: 0px;"
                                "background-color: #800000;"
                                "color: white}"
                                "QPushButton:hover{"
@@ -135,8 +135,8 @@ void MainWindow::initContent(){
 
     optionsButton = new QPushButton(this);
     optionsButton->setGeometry(MAXW-SMALLBUTTONSIZE*2-PADDING, PADDING*2 +SMALLBUTTONSIZE, SMALLBUTTONSIZE*2, SMALLBUTTONSIZE*2);
-    optionsButton->setText("setup");
-    optionsButton->setToolTip("setup");
+    optionsButton->setText("settings");
+    optionsButton->setToolTip("settings");
 
     logButton = new QPushButton(this);
     logButton->setGeometry(MAXW-SMALLBUTTONSIZE*2-PADDING, PADDING*3 +SMALLBUTTONSIZE*3, SMALLBUTTONSIZE*2, SMALLBUTTONSIZE*2);
@@ -146,34 +146,79 @@ void MainWindow::initContent(){
     openDirDlg = new QFileDialog(this,tr("Open file"), pathToFolder);
     openFileDlg = new QFileDialog(this,tr("Open file"), pathToFolder, tr("bin files (*.bin)"));
 
+    openDirDlg->setDirectory(pathToFolder);
+    openFileDlg->setDirectory(pathToFolder);
+
     openDirDlg->setFileMode(QFileDialog::DirectoryOnly);
 
     logEdit = new QTextEdit(this);
     logEdit->setGeometry(PADDING, MAXH, MAXW-PADDING*2, MAXH-PADDING);
     logEdit->setReadOnly(true);
     logEdit->setVisible(false);
-    logEdit->setStyleSheet("border-style:solid; border-color:white;border-width:1px; color:white");
-    appendToLog("Programm started");
+    logEdit->setStyleSheet("QTextEdit{"
+                           "border-style:solid; "
+                           "border-color:white;"
+                           "border-width: 1px; "
+                           "color:white;}");
 
+    boxWidget = new QGroupBox(this);
+    boxWidget->setGeometry(MAXW, PADDING, MAXW-PADDING, MAXH-PADDING*2);
+    boxWidget->setVisible(false);
+    boxWidget->setStyleSheet("QGroupBox{"
+                             "border-style: solid; "
+                             "border-color: white;"
+                             "border-width: 1px; "
+                             "color:white;"
+                             "padding: 0px;"
+                             "margin: 0px;}"
+                             "QLabel{"
+                             "border-style:none; "
+                             "color:white; "
+                             "margin:13px;}"
+                             "QCheckBox{"
+                             "border-style:none; "
+                             "color:white; "
+                             "margin:13px;}");
+
+    dir7ZipL = new QLabel( "Path to 7 zip:", boxWidget);
+    zipLE = new QLineEdit(pathTo7ZipExe,boxWidget);
+    zipLE->setGeometry(150, PADDING, 245, PADDING*2 );
+
+    zipCompressionLevelL = new QLabel ("Zip compression level 0-9:", boxWidget);
+    zipCompressionLevelL->move(0, 30);
+
+    zipCompressionLE = new QSpinBox(boxWidget);
+    zipCompressionLE->setGeometry(150, 40, 245, PADDING*2 );
+    zipCompressionLE->setValue(zipCompressionLevel);
+    zipCompressionLE->setMinimum(0);
+    zipCompressionLE->setMaximum(7);
+    zipCompressionLE->setSingleStep(1);
+
+    createArchive = new QCheckBox("Create archive file", boxWidget);
+    createArchive->move(0, 60);
+    createArchive->setCheckState(Qt::CheckState(createArchiveFile));
+
+    saveLogToSameFolder = new QCheckBox("Save log to same dir", boxWidget);
+    saveLogToSameFolder->move(0, 90);
+    saveLogToSameFolder->setCheckState(Qt::CheckState(logSaveToPrFolder));
 
     connect(closeButton, SIGNAL(clicked(bool)), this, SLOT(onCloseButtonClicked()));
     connect(openDirButton, SIGNAL(clicked(bool)), openDirDlg, SLOT(open()));
-    connect (openFileButton, SIGNAL(clicked(bool)), openFileDlg, SLOT(open()));
-    connect (logButton, SIGNAL(clicked(bool)), this, SLOT(onOpenLogClicked()));
-    connect (openFileDlg, SIGNAL(fileSelected(QString)), this, SLOT(onOpenFileDialogFinished(QString)));
+    connect(openFileButton, SIGNAL(clicked(bool)), openFileDlg, SLOT(open()));
+    connect(logButton, SIGNAL(clicked(bool)), this, SLOT(onOpenLogClicked()));
+    connect(optionsButton, SIGNAL(clicked(bool)), this, SLOT(onOpenSetupClicked()));
+    connect(openFileDlg, SIGNAL(fileSelected(QString)), this, SLOT(onOpenFileDialogFinished(QString)));
     connect(openDirDlg, SIGNAL(fileSelected(QString)), this, SLOT(onOpenDirDialogFinished(QString)));
+    connect(zipLE, SIGNAL(textChanged(QString)), this, SLOT(onZipPathTextChanged(QString)));
+    connect(zipCompressionLE, SIGNAL(valueChanged(int)), this, SLOT(onZipComprLevelChanged(int)));
+    connect(createArchive, SIGNAL(stateChanged(int)), this, SLOT(onCreateArchiveStateChanged(int)));
+    connect(saveLogToSameFolder, SIGNAL(stateChanged(int)), this, SLOT(onSaveLogSameDir(int)));
 }
 
 void MainWindow::initDefVars()
 {
     currentFile = NULL;
-    zipCompressionLevel = 9;
-    //pathToFolder = "//fs/Group Projects/UBS/База конфигураций";//
-    //pathToFolder = QStandardPaths::locate(QStandardPaths::DesktopLocation, QString(), QStandardPaths::LocateDirectory);
-    //pathToFile = "commod.bin";
-    pathTo7ZipExe = "D:\\Program Files (x86)\\7-Zip\\7z.exe";
-    logSaveToPrFolder = true;
-    autoMode = false;
+    initSettings();
 }
 
 bool MainWindow::saveToFile(const QString &fileName, const QString &src, const QByteArray &header)
@@ -235,7 +280,6 @@ void MainWindow::parseCurrentFile()
     int address=HEADER_SIZE;
     for (int i=0; i<dataByParts.count();++i)
     {
-        /*kav names*/
         QString temp;
         temp+="GENERAL"+dataByParts[i];
         temp=temp.left(temp.lastIndexOf("\r\nEND\r\n")+7);
@@ -344,12 +388,52 @@ void MainWindow::appendToLog(const QString &text)
     logEdit->append(dateTime.toString("dd.MM.yyyy hh:mm:ss ")+ text);
 }
 
+void MainWindow::initSettings()
+{
+    QFile file(QStandardPaths::locate(QStandardPaths::DocumentsLocation, QString(), QStandardPaths::LocateDirectory)+"obfuscationSet.txt");
+    if (file.open(QIODevice::ReadOnly)){
+        QDataStream in(&file);
+        in  >>pathTo7ZipExe
+                >>zipCompressionLevel
+                >>logSaveToPrFolder
+                >>createArchiveFile
+                >>pathToFolder;
+    }
+    else{
+        zipCompressionLevel = 7;
+        //pathToFolder = "//fs/Group Projects/UBS/База конфигураций";//
+        pathToFolder = QStandardPaths::locate(QStandardPaths::DesktopLocation, QString(), QStandardPaths::LocateDirectory);
+        pathToFile = "commod.bin";
+        logSaveToPrFolder = true;
+        autoMode = false;
+        createArchiveFile = true;
+    }
+    file.close();
+}
+
+void MainWindow::saveSettings()
+{
+    QFile file(QStandardPaths::locate(QStandardPaths::DocumentsLocation, QString(), QStandardPaths::LocateDirectory)+"obfuscationSet.txt");
+    file.open(QIODevice::WriteOnly);
+    QDataStream out(&file);
+    out <<pathTo7ZipExe
+        <<zipCompressionLevel
+        <<logSaveToPrFolder
+        <<createArchiveFile
+        <<pathToFolder;
+    file.close();
+}
+
 MainWindow::~MainWindow()
 {
     delete openDirButton;
     delete openFileButton;
     delete openDirDlg;
     delete openFileDlg;
+    delete zipCompressionLevelL;
+    delete zipLE;
+    delete logEdit;
+    delete saveLogToSameFolder;
 }
 
 void MainWindow::onCloseButtonClicked()
@@ -358,7 +442,7 @@ void MainWindow::onCloseButtonClicked()
     exit(0);
 }
 
-bool MainWindow::onOpenFileDialogFinished(QString fileName)
+bool MainWindow::onOpenFileDialogFinished(const QString &fileName)
 {
     bool ok = openFile(fileName);
     if (ok)
@@ -366,7 +450,7 @@ bool MainWindow::onOpenFileDialogFinished(QString fileName)
     return ok;
 }
 
-bool MainWindow::onOpenDirDialogFinished(QString dirName)
+bool MainWindow::onOpenDirDialogFinished(const QString &dirName)
 {
     filesToConvert.clear();
     listDirRec(dirName);
@@ -378,19 +462,75 @@ bool MainWindow::onOpenDirDialogFinished(QString dirName)
         else
             return false;
     }
+    setPathToFolder(fileName);
     return true;
 }
 
 void MainWindow::onOpenLogClicked()
 {
+    QPropertyAnimation *animation;
+    animation = new QPropertyAnimation(this, "geometry");
+    animation->setDuration(300);
+    animation->setEasingCurve(QEasingCurve::InCubic);
+    QRect gm = this->geometry();
     logEdit->setVisible(!logEdit->isVisible());
+    logEdit->setGeometry(PADDING, MAXH, gm.width()-PADDING*2, gm.height()-PADDING);
     if (logEdit->isVisible()){
-        mainWindowSize.setHeight(MAXH*2);
+        animation->setStartValue(gm);
+        gm.setHeight(MAXH*2);
+        animation->setEndValue(gm);
     }
     else{
-        mainWindowSize.setHeight(MAXH);
+        animation->setStartValue(gm);
+        gm.setHeight(MAXH);
+        animation->setEndValue(gm);
     }
-    resize(mainWindowSize);
+    animation->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void MainWindow::onOpenSetupClicked()
+{
+    QPropertyAnimation *animation;
+    animation = new QPropertyAnimation(this, "geometry");
+    animation->setDuration(300);
+    animation->setEasingCurve(QEasingCurve::InCubic);
+    QRect gm = this->geometry();
+    boxWidget->setVisible(!boxWidget->isVisible());
+    if (boxWidget->isVisible()){
+        animation->setStartValue(gm);
+        gm.setWidth(MAXW*2);
+        animation->setEndValue(gm);
+        optionsButton->setText("Save \nsettings");
+    }
+    else{
+        animation->setStartValue(gm);
+        gm.setWidth(MAXW);
+        animation->setEndValue(gm);
+        optionsButton->setText("Settings");
+        saveSettings();
+    }
+    animation->start(QAbstractAnimation::DeleteWhenStopped);
+    logEdit->setGeometry(PADDING, MAXH, gm.width()-PADDING*2, logEdit->geometry().height());
+}
+
+void MainWindow::onZipPathTextChanged(const QString &path)
+{
+    pathTo7ZipExe = path;
+}
+
+void MainWindow::onZipComprLevelChanged(int level)
+{
+    zipCompressionLevel = level;
+}
+
+void MainWindow::onCreateArchiveStateChanged(int state)
+{
+    createArchiveFile = state;
+}
+
+void MainWindow::onSaveLogSameDir(int state)
+{
+    logSaveToPrFolder = state;
 }
 
 void MainWindow::mousePressEvent(QMouseEvent *event)
@@ -415,7 +555,7 @@ void MainWindow::mouseReleaseEvent(QMouseEvent *event)
         canMove = false;
     }
 }
-void MainWindow::zip (QString filename , QString zipfilename){
+void MainWindow::zip (const QString &filename ,const QString &zipfilename){
 
     QFile infile(filename);
     QFile outfile(zipfilename);
@@ -428,7 +568,7 @@ void MainWindow::zip (QString filename , QString zipfilename){
     outfile.close();
 }
 
-void MainWindow::unZip (QString zipfilename , QString filename){
+void MainWindow::unZip (const QString &zipfilename , const QString &filename){
     QFile infile(zipfilename);
     QFile outfile(filename);
     infile.open(QIODevice::ReadOnly);
@@ -443,7 +583,7 @@ void MainWindow::srcToZip (const QString & filename , const QString & zipfilenam
 {
     QProcess toZip;
     QStringList list;
-    list << "a" << "-tzip" << "-mx7" << zipfilename << filename; //a -tzip -ssw -mx7
+    list << "a" << "-tzip" << "-mx"+QString::number(zipCompressionLevel, 10) << zipfilename << filename;
     toZip.start(pathTo7ZipExe, list );
     toZip.waitForFinished(30000);
     appendToLog("File "+ filename + " archived in zip.");
@@ -454,6 +594,8 @@ void MainWindow::setPathToFolder(const QString &folder)
 {
     pathToFolder = folder;
     pathToFile = folder + "commod.bin";
+    openDirDlg->setDirectory(folder);
+    openFileDlg->setDirectory(folder);
 }
 
 void MainWindow::setAutoMode(bool aMode)
