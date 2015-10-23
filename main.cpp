@@ -7,7 +7,9 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
 
     MainWindow w;
-
+    // 0 - single file mod
+    // 1 - all files in current dir and all subdirs
+    // path to folder
     if (argc>1){
         (char (*argv[1])== '0' ) ? w.setAutoMode(false) : w.setAutoMode(true);
         QString ptf(argv[2]);

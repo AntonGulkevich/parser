@@ -292,6 +292,7 @@ void MainWindow::parseCurrentFile()
         temp.replace(QRegExp("[ ]{0,}(\\})[ ]{0,}"), QString("}"));
         temp.replace(QRegExp("[ ]{0,}(\\{)[ ]{0,}"), QString("{"));
         temp.remove('\t');
+        //deleting comments
         int charsToDel=0;
         int start =0;
         int tempCount=temp.size()-1;
